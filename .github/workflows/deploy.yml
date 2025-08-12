@@ -69,10 +69,8 @@ jobs:
           echo "Final files to upload: $FILES_TO_UPLOAD"
 
           if [ -n "$FILES_TO_UPLOAD" ]; then
-            gh release create v${{inputs.app-version}} $FILES_TO_UPLOAD \
-              --repo ${{github.repository}} \
-              --title "Electron RPA v${{inputs.app-version}}" \
-              --notes "🚀 **Electron RPA 自动发布**
+            # Create release notes
+            RELEASE_NOTES="🚀 **Electron RPA 自动发布**
 
 📦 **包含文件:**
 $(echo "$FILES_TO_UPLOAD" | tr ' ' '\n' | sed 's/.*\//- /')
@@ -91,6 +89,11 @@ $(echo "$FILES_TO_UPLOAD" | tr ' ' '\n' | sed 's/.*\//- /')
 1. 下载对应平台的安装包
 2. 运行安装程序
 3. 应用支持自动更新"
+
+            gh release create v${{inputs.app-version}} $FILES_TO_UPLOAD \
+              --repo ${{github.repository}} \
+              --title "Electron RPA v${{inputs.app-version}}" \
+              --notes "$RELEASE_NOTES"
           else
             echo "❌ No installer files found to upload"
             exit 1
