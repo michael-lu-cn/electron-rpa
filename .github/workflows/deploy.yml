@@ -37,6 +37,38 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - run: gh release create v${{inputs.app-version}} dist/root* dist/latest*.yml --repo ${{github.repository}}
+      - name: List downloaded files
+        run: |
+          echo "Contents of dist directory:"
+          find dist -type f -name "*" | head -20
+
+      - name: Create release with available files
+        run: |
+          # Find all files that match the expected patterns
+          ROOT_FILES=$(find dist -name "root*" -type f || echo "")
+          LATEST_FILES=$(find dist -name "latest*.yml" -type f || echo "")
+
+          # Create array of all files to upload
+          FILES_TO_UPLOAD=""
+          if [ -n "$ROOT_FILES" ]; then
+            FILES_TO_UPLOAD="$FILES_TO_UPLOAD $ROOT_FILES"
+          fi
+          if [ -n "$LATEST_FILES" ]; then
+            FILES_TO_UPLOAD="$FILES_TO_UPLOAD $LATEST_FILES"
+          fi
+
+          # If no specific files found, upload all files in dist
+          if [ -z "$FILES_TO_UPLOAD" ]; then
+            FILES_TO_UPLOAD=$(find dist -type f)
+          fi
+
+          echo "Files to upload: $FILES_TO_UPLOAD"
+
+          if [ -n "$FILES_TO_UPLOAD" ]; then
+            gh release create v${{inputs.app-version}} $FILES_TO_UPLOAD --repo ${{github.repository}} --title "Release v${{inputs.app-version}}" --notes "Automated release for commit ${{github.sha}}"
+          else
+            echo "No files found to upload"
+            exit 1
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
