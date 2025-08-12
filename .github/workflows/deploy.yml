@@ -40,15 +40,21 @@ jobs:
       - name: List downloaded files
         run: |
           echo "Contents of dist directory:"
-          find dist -type f -name "*" | head -20
+          find dist -type f -name "*" 2>/dev/null | head -20 || true
+          echo "Total files: $(find dist -type f 2>/dev/null | wc -l)"
 
       - name: Create release with available files
         run: |
-          # Find all files that match the expected patterns
-          ROOT_FILES=$(find dist -name "root*" -type f || echo "")
-          LATEST_FILES=$(find dist -name "latest*.yml" -type f || echo "")
+          # Find main installer files (exclude unpacked directories and blockmap files)
+          ROOT_FILES=$(find dist -maxdepth 1 -name "root*.exe" -o -name "root*.dmg" -o -name "root*.deb" -o -name "root*.AppImage" 2>/dev/null || true)
+          LATEST_FILES=$(find dist -maxdepth 1 -name "latest*.yml" 2>/dev/null || true)
 
-          # Create array of all files to upload
+          echo "Found installer files:"
+          echo "$ROOT_FILES"
+          echo "Found update files:"
+          echo "$LATEST_FILES"
+
+          # Combine files to upload
           FILES_TO_UPLOAD=""
           if [ -n "$ROOT_FILES" ]; then
             FILES_TO_UPLOAD="$FILES_TO_UPLOAD $ROOT_FILES"
@@ -57,17 +63,36 @@ jobs:
             FILES_TO_UPLOAD="$FILES_TO_UPLOAD $LATEST_FILES"
           fi
 
-          # If no specific files found, upload all files in dist
-          if [ -z "$FILES_TO_UPLOAD" ]; then
-            FILES_TO_UPLOAD=$(find dist -type f)
-          fi
+          # Remove leading/trailing spaces
+          FILES_TO_UPLOAD=$(echo $FILES_TO_UPLOAD | xargs)
 
-          echo "Files to upload: $FILES_TO_UPLOAD"
+          echo "Final files to upload: $FILES_TO_UPLOAD"
 
           if [ -n "$FILES_TO_UPLOAD" ]; then
-            gh release create v${{inputs.app-version}} $FILES_TO_UPLOAD --repo ${{github.repository}} --title "Release v${{inputs.app-version}}" --notes "Automated release for commit ${{github.sha}}"
+            gh release create v${{inputs.app-version}} $FILES_TO_UPLOAD \
+              --repo ${{github.repository}} \
+              --title "Electron RPA v${{inputs.app-version}}" \
+              --notes "🚀 **Electron RPA 自动发布**
+
+📦 **包含文件:**
+$(echo "$FILES_TO_UPLOAD" | tr ' ' '\n' | sed 's/.*\//- /')
+
+🔧 **构建信息:**
+- Commit: ${{github.sha}}
+- 构建时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+- 分发渠道: ${{inputs.distribution-channel}}
+
+💾 **支持平台:**
+- Windows (x64)
+- macOS (ARM64)
+- Linux (x64)
+
+📥 **安装说明:**
+1. 下载对应平台的安装包
+2. 运行安装程序
+3. 应用支持自动更新"
           else
-            echo "No files found to upload"
+            echo "❌ No installer files found to upload"
             exit 1
           fi
         env:
